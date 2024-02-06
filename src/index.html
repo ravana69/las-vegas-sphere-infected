@@ -1,0 +1,100 @@
+<script async src="https://ga.jspm.io/npm:es-module-shims@1.5.1/dist/es-module-shims.js" crossorigin="anonymous"></script>
+<script type="importmap">
+  {
+    "imports": {
+      "three": "https://unpkg.com/three@0.159.0/build/three.module.js",
+      "postprocessing": "https://unpkg.com/postprocessing@6.33.4/build/index.js"
+    }
+  }
+</script>
+
+<video id="video" loop crossorigin="anonymous" muted playsinline hidden>
+  <source src="https://maz25.de/artifacts/stabilizedSphere_2.mp4" type="video/mp4" />
+</video>
+<script type="x-shader/vertex-shader" id="vertexShader">
+  varying vec2 vUv;
+  varying vec3 vNormal;
+
+  void main() {
+    vUv = uv;
+    vNormal = normalize(normalMatrix * normal);
+
+    gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+  }
+</script>
+<script type="x-shader/fragment-shader" id="fragmentShader">
+  varying vec2 vUv;
+  varying vec3 vNormal;
+  uniform float time;
+
+  #define PI 3.14159
+  #define T time
+  #define S smoothstep
+  #define hue(a) (.6+.6*cos(6.3*(a)+vec3(0,23,21)))
+  #define rot(a) mat2(cos(a),-sin(a),sin(a),cos(a))
+
+  float rnd(vec2 p) {
+    return fract(
+      sin(
+        dot(
+          p,
+          vec2(12.9898,78.233)
+        )
+      )*43758.54531
+    );
+  }
+
+  float noise(vec2 p) {
+    vec2 f=fract(p)-.5, i=floor(p);
+
+    float d=.5, n=3.;
+
+    for (float x=-n; x<n; x++) {
+      for (float y=-n; y<n; y++) {
+        vec2
+        a=vec2(x,y),
+        b=(a+i)*rnd(a+i),
+        c=f-(a+sin(T*.5-b*8.));
+
+        c.x*=1.+rnd(b.xy+sin(b*8.))*.5;
+        c.y*=1.+rnd(b.yx+sin(b*8.))*.5;
+
+        d=min(d, dot(c,c));
+      }
+    }
+
+    return sqrt(d);
+  }
+
+  void main() {
+    if (vUv.y + vUv.x / 10. < 0.42 ) {
+      discard;
+    }
+
+    vec2 uv = vNormal.xy*.5+.5;
+    vec3 col = vec3(0);
+
+    uv *= 2.;
+    for (float i=.0; i<4.; i++) {
+      uv.x+=sin(T*(1.+i*.25)+uv.y*1.5)*.12;
+    }
+
+    col+=hue(noise(uv*12.));
+
+    vec3 c=vec3(0,1,cos(uv*100.).y);
+    c.xz*=rot(T*.5);
+    col=mix(col,c,.05);
+    col=mix(col,.05/c,.05);
+
+    float tr=T-length(uv)*5.;
+    col.yz*=rot(tr);
+    col.xz*=rot(tr*.7);
+
+    col=abs(col);
+
+    col.xz*=rot(PI*.5);
+    col.yz*=rot(PI*1.25);
+
+    gl_FragColor = vec4(col, 1);
+  }
+</script>
